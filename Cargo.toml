@@ -1,0 +1,19 @@
+[package]
+name = "cargo-hdk"
+version = "0.1.0"
+authors = ["Egor Larionov <egor.larionov@gmail.com>"]
+edition = "2018"
+
+description = "Cargo subcommand for building Houdini plugins."
+license = "MIT OR Apache-2.0"
+documentation = "https://github.com/elrnv/cargo-hdk"
+repository = "https://github.com/elrnv/cargo-hdk"
+homepage = "https://github.com/elrnv/cargo-hdk"
+readme = "README.md"
+keywords = ["Houdini", "HDK", "plugin"]
+
+[dependencies]
+structopt = "0.3"
+terminal_size = "0.1"
+
+
