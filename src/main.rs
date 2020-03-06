@@ -22,7 +22,7 @@ struct Opt {
     ///
     /// Arguments are expected to be listed between brackets. For instance to use Ninja as the
     /// cmake generator, use '--cmake "[-G Ninja]"'.
-    #[structopt(short, long)]
+    #[structopt(short, long, default_value = "")]
     cmake: String,
 
     /// Path to the HDK plugin relative to the root of the crate.
@@ -41,9 +41,14 @@ fn main() {
     let opts = Opt::from_clap(&app.get_matches());
 
     if !opts.hdk_only {
-        Command::new("cargo")
+        let build_args = if opts.build_args.first().map(|x| x.as_str()) == Some("hdk") {
+            &opts.build_args[1..]
+        } else {
+            opts.build_args.as_slice()
+        };
+        Command::new(env!("CARGO"))
             .arg("build")
-            .args(&opts.build_args[1..])
+            .args(build_args)
             .status()
             .expect("Cargo build failed");
     }
@@ -64,18 +69,29 @@ fn main() {
     let build_type = opts.build_args.iter().find(|&x| x == "--release")
         .map(|_| "Release").unwrap_or_else(|| "Debug");
 
-    let build_dir = PathBuf::from(opts.hdk_path).join("build");
-    std::fs::create_dir(&build_dir).ok(); // Build if it doesn't exist
+    let root_dir = env!("CARGO_MANIFEST_DIR");
+
+    let build_dir = PathBuf::from(root_dir).join(opts.hdk_path).join("build");
+
+    // Build if it doesn't exist
+    match std::fs::create_dir(&build_dir) {
+        Err(err) if err.kind() != std::io::ErrorKind::AlreadyExists => {
+            panic!("Failed to create build directory: {:?}", &build_dir);
+        }
+        _ => {}
+    }
 
     let cur_dir = env::current_dir().expect("Failed to get current directory");
-    env::set_current_dir(&build_dir).expect("Failed to set current directory");
+    env::set_current_dir(&build_dir).expect(&format!("Failed to set current directory: {:?}", &build_dir));
 
-    let cmake_args = if opts.cmake.starts_with("[") && opts.cmake.ends_with("]") {
-        opts.cmake[1..opts.cmake.len()-1].split_whitespace().collect()
-    } else {
-        eprintln!("WARNING: cmake args must be surrounded with square brackets '[' and ']'.");
-        Vec::new()
-    };
+    let mut cmake_args = Vec::new();
+    if !opts.cmake.is_empty() {
+        if opts.cmake.starts_with("[") && opts.cmake.ends_with("]") {
+            cmake_args = opts.cmake[1..opts.cmake.len()-1].split_whitespace().collect();
+        } else {
+            eprintln!("WARNING: cmake args must be surrounded with square brackets '[' and ']'.");
+        };
+    }
 
     Command::new("cmake")
         .arg("..")
