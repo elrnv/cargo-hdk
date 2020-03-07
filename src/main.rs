@@ -3,11 +3,11 @@ extern crate anyhow;
 
 use anyhow::{Context, Result};
 
-use structopt::{clap::AppSettings, StructOpt};
+use log::*;
+use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::env;
-use log::*;
+use structopt::{clap::AppSettings, StructOpt};
 
 const ABOUT: &str = "
 cargo-hdk is a cargo subcommand to compile C++ code defining an HDK interface for a Houdini plugin. This subcommand runs 'cargo build' with the provided arguments followed by a CMake build of the HDK plugin.";
@@ -18,8 +18,8 @@ struct Opt {
     #[structopt(flatten)]
     verbose: clap_verbosity_flag::Verbosity,
 
-    /// Arguments for the 'cargo build' step. These are igonored if `--hdk-only'
-    /// is specified.
+    /// Arguments for the 'cargo build' step. These are mostly igonored if `--hdk-only' is
+    /// specified.
     #[structopt(name = "BUILD ARGS")]
     build_args: Vec<String>,
 
@@ -55,12 +55,14 @@ pub fn init_logging(level: Option<log::Level>) {
 }
 
 fn main() -> Result<()> {
-    use terminal_size::{ terminal_size, Width };
-    let app = Opt::clap().set_term_width(if let Some((Width(w), _)) = terminal_size() {
-        w as usize
-    } else {
-        80
-    }).setting(AppSettings::AllowLeadingHyphen);
+    use terminal_size::{terminal_size, Width};
+    let app = Opt::clap()
+        .set_term_width(if let Some((Width(w), _)) = terminal_size() {
+            w as usize
+        } else {
+            80
+        })
+        .setting(AppSettings::AllowLeadingHyphen);
 
     let opts = Opt::from_clap(&app.get_matches());
     init_logging(opts.verbose.log_level());
@@ -75,12 +77,14 @@ fn main() -> Result<()> {
         root_dir = if let Some(parent) = root_dir.parent() {
             parent
         } else {
-            bail!("Couldn't find `Cargo.toml` in {:?} or any parent directory.", orig_cur_dir);
+            bail!(
+                "Couldn't find `Cargo.toml` in {:?} or any parent directory.",
+                orig_cur_dir
+            );
         }
     }
 
     if !opts.hdk_only {
-
         info!("Building rust code using cargo.");
 
         let build_args = if opts.build_args.first().map(|x| x.as_str()) == Some("hdk") {
@@ -121,15 +125,25 @@ fn main() -> Result<()> {
 
     debug!("Determining build type.");
 
-    let build_type = opts.build_args.iter().find(|&x| x == "--release")
-        .map(|_| "Release").unwrap_or_else(|| "Debug");
+    let build_type = opts
+        .build_args
+        .iter()
+        .find(|&x| x == "--release")
+        .map(|_| "Release")
+        .unwrap_or_else(|| "Debug");
 
-    let build_dir = PathBuf::from(root_dir).join(opts.hdk_path).join(&format!("build_{}", build_type.to_lowercase()));
+    let build_dir = PathBuf::from(root_dir)
+        .join(opts.hdk_path)
+        .join(&format!("build_{}", build_type.to_lowercase()));
 
     if opts.clean {
         // Clean the build artifacts
-        std::fs::remove_dir_all(&build_dir)
-            .with_context(|| format!("Failed to remove HDK build artifacts located in {:?}", &build_dir))?;
+        std::fs::remove_dir_all(&build_dir).with_context(|| {
+            format!(
+                "Failed to remove HDK build artifacts located in {:?}",
+                &build_dir
+            )
+        })?;
 
         return Ok(());
     }
@@ -144,14 +158,17 @@ fn main() -> Result<()> {
         _ => {}
     }
 
-    env::set_current_dir(&build_dir).with_context(|| format!("Failed to set current directory: {:?}", &build_dir))?;
+    env::set_current_dir(&build_dir)
+        .with_context(|| format!("Failed to set current directory: {:?}", &build_dir))?;
 
     debug!("Parsing cmake args.");
 
     let mut cmake_args = Vec::new();
     if !opts.cmake.is_empty() {
         if opts.cmake.starts_with("[") && opts.cmake.ends_with("]") {
-            cmake_args = opts.cmake[1..opts.cmake.len()-1].split_whitespace().collect();
+            cmake_args = opts.cmake[1..opts.cmake.len() - 1]
+                .split_whitespace()
+                .collect();
         } else {
             eprintln!("WARNING: cmake args must be surrounded with square brackets '[' and ']'.");
         };
