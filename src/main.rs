@@ -114,6 +114,7 @@ fn main() -> Result<()> {
         // Try some typical installation paths:
         for version in &["18.5", "18.0", "17.5", "17.0"] {
             let hfs_path = format!("/opt/hfs{}", version);
+            info!("Using Houdini installation path {:?}", hfs_path);
             if Path::new(&hfs_path).exists() {
                 return Some(hfs_path);
             }
@@ -121,7 +122,15 @@ fn main() -> Result<()> {
         None
     }).context("Couldn't find HFS. Please source 'houdini_setup' from houdini's installation directory or set the 'HFS' environment variable to the Houdini installation path.")?;
 
-    env::set_var("HFS", hfs);
+    env::set_var("HFS", &hfs);
+    // Set the path variable to include hfs bin directory.
+    // This is needed in case hserver needs to verify the license during a build.
+    if let Some(path) = env::var_os("PATH") {
+        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
+        paths.push(PathBuf::from(&hfs).join("bin"));
+        let new_path = env::join_paths(paths)?;
+        env::set_var("PATH", &new_path);
+    }
 
     debug!("Determining build type.");
 
