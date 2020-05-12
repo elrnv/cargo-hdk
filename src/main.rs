@@ -107,7 +107,9 @@ fn main() -> Result<()> {
                 .context("Cargo build failed")?
         };
 
-        assert!(status.success());
+        if !status.success() {
+            return Err(anyhow!("Rust build failed"));
+        }
     }
 
     info!("Looking for a Houdini installation.");
