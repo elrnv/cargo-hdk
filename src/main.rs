@@ -178,7 +178,7 @@ fn main() -> Result<()> {
 
     let mut cmake_args = Vec::new();
     if !opts.cmake.is_empty() {
-        if opts.cmake.starts_with("[") && opts.cmake.ends_with("]") {
+        if opts.cmake.starts_with('[') && opts.cmake.ends_with(']') {
             cmake_args = opts.cmake[1..opts.cmake.len() - 1]
                 .split_whitespace()
                 .collect();
