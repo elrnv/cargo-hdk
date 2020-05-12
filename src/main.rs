@@ -93,19 +93,21 @@ fn main() -> Result<()> {
             opts.build_args.as_slice()
         };
 
-        if opts.clean {
+        let status = if opts.clean {
             Command::new(env!("CARGO"))
                 .arg("clean")
                 .args(build_args)
                 .status()
-                .context("Cargo clean failed")?;
+                .context("Cargo clean failed")?
         } else {
             Command::new(env!("CARGO"))
                 .arg("build")
                 .args(build_args)
                 .status()
-                .context("Cargo build failed")?;
-        }
+                .context("Cargo build failed")?
+        };
+
+        assert!(status.success());
     }
 
     info!("Looking for a Houdini installation.");
