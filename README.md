@@ -6,7 +6,6 @@ The purpose of this command line tool is to simplify building Rust plugins for H
 HDK.
 
 [![On crates.io](https://img.shields.io/crates/v/cargo-hdk.svg)](https://crates.io/crates/cargo-hdk)
-[![Build status](https://travis-ci.org/elrnv/cargo-hdk.svg?branch=master)](https://travis-ci.org/elrnv/cargo-hdk)
 
 # Features
 
