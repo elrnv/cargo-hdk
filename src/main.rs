@@ -21,9 +21,19 @@ struct Opt {
     #[structopt(flatten)]
     verbose: clap_verbosity_flag::Verbosity,
 
-    /// Arguments for the 'cargo build' step.
+    /// Arguments for the 'cargo build' step. These are ignored when the '--hdk-only' flag is used.
     #[structopt(name = "BUILD ARGS")]
     build_args: Vec<String>,
+
+    /// Skip the 'cargo build` step. Build only the HDK plugin.
+    #[structopt(short = "k", long)]
+    hdk_only: bool,
+    
+    /// Remove artifacts created by the build process including the HDK plugin.
+    ///
+    /// To clean the HDK build only, use the '--hdk-only' flag in combination with this flag.
+    #[structopt(long)]
+    clean: bool,
 
     /// Pass arguments to CMake configuration.
     ///
