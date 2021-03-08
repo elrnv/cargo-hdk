@@ -1,16 +1,16 @@
 #[macro_use]
 extern crate anyhow;
 
-use std::env;
 use std::path::{Path, PathBuf};
-use std::process::{Stdio, Command};
+use std::process::{Command, Stdio};
+use std::{env, fs};
 
 use anyhow::{Context, Result};
 
 use log::*;
 use structopt::{clap::AppSettings, StructOpt};
 
-use cargo_metadata::{Package, Message, MetadataCommand};
+use cargo_metadata::{camino::Utf8PathBuf, Message, MetadataCommand, Package};
 
 const ABOUT: &str = "
 cargo-hdk is a cargo subcommand to compile and install a Houdini plugin written in Rust and C++.";
@@ -28,7 +28,7 @@ struct Opt {
     /// Skip the 'cargo build` step. Build only the HDK plugin.
     #[structopt(short = "k", long)]
     hdk_only: bool,
-    
+
     /// Remove artifacts created by the build process including the HDK plugin.
     ///
     /// To clean the HDK build only, use the '--hdk-only' flag in combination with this flag.
@@ -42,9 +42,9 @@ struct Opt {
     #[structopt(short, long, default_value = "")]
     cmake: String,
 
-    /// Path to the HDK plugin relative to the root of the crate.
+    /// Path to the HDK plugin relative to the root of the crate. This must be a Unicode path.
     #[structopt(short, long, default_value = "./hdk")]
-    hdk_path: PathBuf,
+    hdk_path: Utf8PathBuf,
 
     /// Path prefix to the automatically generated files containing the Rust output directories
     /// ('OUT_DIR') of the crate being built as well as any additional dependencies specified by
@@ -80,7 +80,7 @@ pub fn init_logging(level: Option<log::Level>) {
 
 // Run the cargo build (or clean) command and return the output directories to cache for each
 // dependency (including the crate being compiled).
-fn cargo_build(opts: &Opt, package: &Package) -> Result<Vec<(String, PathBuf)>> {
+fn cargo_build(opts: &Opt, package: &Package) -> Result<Vec<(String, Utf8PathBuf)>> {
     info!("Building Rust code using cargo.");
 
     let build_args = if opts.build_args.first().map(|x| x.as_str()) == Some("hdk") {
@@ -118,13 +118,21 @@ fn cargo_build(opts: &Opt, package: &Package) -> Result<Vec<(String, PathBuf)>> 
         let mut out_dir_deps = Vec::new();
         for message in Message::parse_stream(reader) {
             if let Message::BuildScriptExecuted(script) = message.unwrap() {
-                trace!("Checking if a build script package id {} is {}", &script.package_id.repr, &package.id);
+                trace!(
+                    "Checking if a build script package id {} is {}",
+                    &script.package_id.repr,
+                    &package.id
+                );
                 if script.package_id == package.id {
                     out_dir_deps.push((package.name.clone(), script.out_dir.clone()));
                     continue;
                 }
                 for dep in &opts.deps {
-                    trace!("Checking if a build script package id {} contains {}", &script.package_id.repr, &dep);
+                    trace!(
+                        "Checking if a build script package id {} contains {}",
+                        &script.package_id.repr,
+                        &dep
+                    );
                     if script.package_id.repr.contains(dep) {
                         out_dir_deps.push((dep.clone(), script.out_dir.clone()));
                         continue;
@@ -155,7 +163,9 @@ fn main() -> Result<()> {
     info!("Looking for a parent directory containing the `Cargo.toml` manifest file.");
 
     let metadata = MetadataCommand::new().exec()?;
-    let package = metadata.root_package().context("Failed to find crate root")?;
+    let package = metadata
+        .root_package()
+        .context("Failed to find crate root")?;
 
     info!("Looking for a Houdini installation.");
 
@@ -190,7 +200,10 @@ fn main() -> Result<()> {
         .map(|_| "Release")
         .unwrap_or_else(|| "Debug");
 
-    let build_dir = package.manifest_path.parent().context("Failed to find manifest directory")?
+    let build_dir = package
+        .manifest_path
+        .parent()
+        .context("Failed to find manifest directory")?
         .join(&opts.hdk_path)
         .join(&format!("build_{}", build_type.to_lowercase()));
 
@@ -198,8 +211,8 @@ fn main() -> Result<()> {
 
     if opts.clean {
         // Clean the build artifacts.
-        if let Err(e) = std::fs::remove_dir_all(&build_dir) {
-            warn!("Failed to remove {}: {}", build_dir.display(), e);
+        if let Err(e) = fs::remove_dir_all(&build_dir) {
+            warn!("Failed to remove {}: {}", build_dir, e);
         }
 
         return Ok(());
@@ -207,14 +220,14 @@ fn main() -> Result<()> {
         debug!("Creating the build directory: {:?}.", build_dir);
 
         // Create build directory if it doesn't exist
-        match std::fs::create_dir(&build_dir) {
+        match fs::create_dir(&build_dir) {
             Err(err) if err.kind() != std::io::ErrorKind::AlreadyExists => {
                 bail!("Failed to create build directory: {:?}", &build_dir);
             }
             _ => {}
         }
     }
-    
+
     // Do the Cargo build/clean
 
     // Cargo build with a custom target directory set to the cmake build directory.
@@ -225,20 +238,25 @@ fn main() -> Result<()> {
             use std::io::Write;
             let out_dir_path = build_dir.join(format!("{}{}.txt", &opts.out_dir_file_prefix, dep));
             // Build directory structure for out_dir_path.
-            let out_dir_path_dir = out_dir_path.parent()
-                    .expect(&format!("Invalid 'OUT_DIR' path: {}", out_dir_path.display()));
+            let out_dir_path_dir = out_dir_path
+                .parent()
+                .expect(&format!("Invalid 'OUT_DIR' path: {}", out_dir_path));
             if !out_dir_path_dir.exists() {
-                std::fs::create_dir_all(out_dir_path_dir)
-                    .expect(&format!("Failed to create 'OUT_DIR' path directory: {}", out_dir_path_dir.display()));
+                fs::create_dir_all(out_dir_path_dir).expect(&format!(
+                    "Failed to create 'OUT_DIR' path directory: {}",
+                    out_dir_path_dir
+                ));
             }
 
-            let mut out_dir_file = std::fs::File::create(out_dir_path.clone())
-                .context(format!("Failed to create the OUT_DIR file: {}", out_dir_path.display()))?;
-            write!(out_dir_file, "{}", out_dir.display())?;
+            let mut out_dir_file = fs::File::create(out_dir_path.clone()).context(format!(
+                "Failed to create the OUT_DIR file: {}",
+                out_dir_path
+            ))?;
+            write!(out_dir_file, "{}", out_dir)?;
             // Close the file at the end of the scope.
         }
     }
-    
+
     if opts.clean {
         return Ok(());
     }
