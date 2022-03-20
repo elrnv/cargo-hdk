@@ -45,9 +45,9 @@ use the cached generator, unless `cargo hdk --clean` is run, which clears all bu
 If you are having trouble with the build process, this crate implements [clap-verbosity-flag](https://crates.io/crates/clap-verbosity-flag), which means logging can be output with the following flags
 
 ```
-cargo hdk -q # silences output
-cargo hdk -v # show warnings
-cargo hdk -vv # show info
-cargo hdk -vvv # show debug
-cargo hdk -vvvv show trace
+cargo hdk -q    # silences output
+cargo hdk -v    # show warnings
+cargo hdk -vv   # show info
+cargo hdk -vvv  # show debug
+cargo hdk -vvvv # show trace
 ```
