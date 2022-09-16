@@ -8,42 +8,42 @@ use std::{env, fs};
 use anyhow::{Context, Result};
 
 use log::*;
-use structopt::{clap::AppSettings, StructOpt};
+use clap::{Parser, AppSettings};
 
 use cargo_metadata::{camino::Utf8PathBuf, Message, MetadataCommand, Package};
 
 const ABOUT: &str = "
 cargo-hdk is a cargo subcommand to compile and install a Houdini plugin written in Rust and C++.";
 
-#[derive(StructOpt, Debug)]
-#[structopt(author, about = ABOUT, name = "cargo-hdk")]
+#[derive(Parser, Debug)]
+#[clap(author, about = ABOUT, name = "cargo-hdk")]
 struct Opt {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     verbose: clap_verbosity_flag::Verbosity,
 
     /// Arguments for the 'cargo build' step. These are ignored when the '--hdk-only' flag is used.
-    #[structopt(name = "BUILD ARGS")]
+    #[clap(name = "BUILD ARGS")]
     build_args: Vec<String>,
 
     /// Skip the 'cargo build` step. Build only the HDK plugin.
-    #[structopt(short = "k", long)]
+    #[clap(short = 'k', long)]
     hdk_only: bool,
 
     /// Remove artifacts created by the build process including the HDK plugin.
     ///
     /// To clean the HDK build only, use the '--hdk-only' flag in combination with this flag.
-    #[structopt(long)]
+    #[clap(long)]
     clean: bool,
 
     /// Pass arguments to CMake configuration.
     ///
     /// Arguments are expected to be listed between brackets. For instance to use Ninja as the
     /// cmake generator, use '--cmake "[-G Ninja]"'.
-    #[structopt(short, long, default_value = "")]
+    #[clap(short, long, default_value = "")]
     cmake: String,
 
     /// Path to the HDK plugin relative to the root of the crate. This must be a Unicode path.
-    #[structopt(short, long, default_value = "./hdk")]
+    #[clap(short, long, default_value = "./hdk")]
     hdk_path: Utf8PathBuf,
 
     /// Path prefix to the automatically generated files containing the Rust output directories
@@ -61,11 +61,11 @@ struct Opt {
     ///
     /// If multiple versions of the same dependency are found, the last one built is the one that
     /// will have an associated 'OUT_DIR' file.
-    #[structopt(long, default_value = "rust/out_dir_")]
+    #[clap(long, default_value = "rust/out_dir_")]
     out_dir_file_prefix: String,
 
     /// The list of dependency names for which to produce an 'OUT_DIR' file.
-    #[structopt(long, default_value = "hdkrs")]
+    #[clap(long, default_value = "hdkrs")]
     deps: Vec<String>,
 }
 
