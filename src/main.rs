@@ -7,8 +7,8 @@ use std::{env, fs};
 
 use anyhow::{Context, Result};
 
+use clap::{AppSettings, Parser};
 use log::*;
-use clap::{Parser, AppSettings};
 
 use cargo_metadata::{camino::Utf8PathBuf, Message, MetadataCommand, Package};
 
@@ -37,8 +37,7 @@ struct Opt {
 
     /// Pass arguments to CMake configuration.
     ///
-    /// Arguments are expected to be listed between brackets. For instance to use Ninja as the
-    /// cmake generator, use '--cmake "[-G Ninja]"'.
+    /// For instance to use Ninja as the cmake generator, use '--cmake "-G Ninja"'.
     #[clap(short, long, default_value = "")]
     cmake: String,
 
@@ -270,13 +269,39 @@ fn main() -> Result<()> {
 
     let mut cmake_args = Vec::new();
     if !opts.cmake.is_empty() {
-        if opts.cmake.starts_with('[') && opts.cmake.ends_with(']') {
-            cmake_args = opts.cmake[1..opts.cmake.len() - 1]
-                .split_whitespace()
-                .collect();
+        // Strip square brackets if they are there for backwards compatibility.
+        let arg_str = if opts.cmake.starts_with('[') && opts.cmake.ends_with(']') {
+            &opts.cmake[1..opts.cmake.len() - 1]
         } else {
-            eprintln!("WARNING: cmake args must be surrounded with square brackets '[' and ']'.");
+            &opts.cmake[..]
         };
+
+        // Quick and dirty quoation sensitive parser
+        let mut cur_arg = String::new();
+        let mut in_quoted_text = None;
+        for c in arg_str.chars() {
+            if let Some(quotation_char) = in_quoted_text {
+                if c == quotation_char {
+                    // End quoted text
+                    in_quoted_text = None;
+                    continue; // Consume the qutation mark
+                }
+            } else if c == '\"' || c == '\'' {
+                in_quoted_text = Some(c);
+                continue;
+            } else if c.is_whitespace() {
+                if !cmake_args.is_empty() {
+                    let finished_arg = std::mem::replace(&mut cur_arg, String::new());
+                    cmake_args.push(finished_arg);
+                }
+                continue;
+            }
+            cur_arg.push(c);
+        }
+        // Push any remainder arg to cmake_args.
+        if !cur_arg.is_empty() {
+            cmake_args.push(cur_arg);
+        }
     }
 
     info!("Configuring CMake.");
